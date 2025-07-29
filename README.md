@@ -1,16 +1,12 @@
-# ai_recorder
+AI Recorder is a smart audio recording app built with Flutter using the flutter_sound package. 
+It lets users record, play, rename, and manage audio files with an intuitive UI and precise time tracking. 
+Designed for simplicity and performance.
 
-A new Flutter project.
+📂 Save recordings to local storage (Download/MyRecordings)
 
-## Getting Started
+🔁 Play & pause recorded audio
 
-This project is a starting point for a Flutter application.
+📝 Rename or delete recordings
 
-A few resources to get you started if this is your first Flutter project:
+🔒 Microphone permission handling
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
