@@ -19,13 +19,11 @@ class RecordPage extends StatefulWidget {
 class _RecordPageState extends State<RecordPage> {
   final FlutterSoundRecorder _recorder = FlutterSoundRecorder();
   final FlutterSoundPlayer _player = FlutterSoundPlayer();
-  final FlutterSoundHelper _helper = FlutterSoundHelper();
   bool isRecording = false;
   bool isRecorderInitialize = false;
   int _elapsedSeconds = 0;
   String? _currentlyPlayingPath;
   bool _isPlaying = false;
-  // Map<String, String> _durations = {};
   Timer? _timer;
   List<FileSystemEntity> _recordings = [];
   Directory? _recordingDirectory;
@@ -80,7 +78,6 @@ class _RecordPageState extends State<RecordPage> {
       }
     }
   }
-
   Future<void> _stopRecording() async {
     await _recorder.stopRecorder();
     _stopTimer();
@@ -135,7 +132,6 @@ class _RecordPageState extends State<RecordPage> {
       });
     });
   }
-
   void _stopTimer() {
     _timer?.cancel();
   }
@@ -227,7 +223,6 @@ class _RecordPageState extends State<RecordPage> {
                 // final isThisPaused = _currentlyPlayingPath == path && !_isPlaying;
                 return ListTile(
                   title: Text(name),
-                  // subtitle: Text(_durations[path] ?? '00:00'),
                   leading: IconButton(
                     icon: Icon(isThisPlaying ? Icons.pause : Icons.play_arrow, color: Colors.blue),
                     onPressed: () => _playOrPauseRecording(file.path),
