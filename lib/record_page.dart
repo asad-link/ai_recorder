@@ -21,12 +21,15 @@ class _RecordPageState extends State<RecordPage> {
   final FlutterSoundPlayer _player = FlutterSoundPlayer();
   bool isRecording = false;
   bool isRecorderInitialize = false;
+  bool _isLoading = true;
   int _elapsedSeconds = 0;
   String? _currentlyPlayingPath;
   bool _isPlaying = false;
   Timer? _timer;
   List<FileSystemEntity> _recordings = [];
+  Map<String, String> _durations = {};
   Directory? _recordingDirectory;
+
 
   @override
   void initState() {
@@ -36,9 +39,11 @@ class _RecordPageState extends State<RecordPage> {
 
   Future<void> _initialize() async {
     permissionHandler();
-    Directory dir = Directory('/storage/emulated/0/Download/MyRecordings');
-    if (!await dir.exists()) await dir.create(recursive: true);
-    _recordingDirectory = dir;
+    const kRecordingDir = '/storage/emulated/0/Download/MyRecordings';
+    _recordingDirectory = Directory(kRecordingDir);
+    if (!await _recordingDirectory!.exists()) {
+      await _recordingDirectory!.create(recursive: true);
+    }
     _loadRecordings();
   }
 
@@ -62,14 +67,14 @@ class _RecordPageState extends State<RecordPage> {
   }
 
   Future<void> _startRecording() async {
+    if (!isRecorderInitialize) await permissionHandler();
     if (isRecorderInitialize && !isRecording) {
-      await permissionHandler();
       if (await Permission.microphone.isGranted) {
         String fileName = 'recording_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.aac';
         String path = '${_recordingDirectory!.path}/$fileName';
         print("Recording saved to: $path");
 
-        await _recorder.startRecorder(toFile: path, audioSource: AudioSource.microphone);
+        await _recorder.startRecorder(toFile: path, audioSource: AudioSource.microphone,codec: Codec.aacADTS);
         setState(() {
           isRecording = true;
           _elapsedSeconds = 0;
@@ -83,15 +88,36 @@ class _RecordPageState extends State<RecordPage> {
     _stopTimer();
     setState(() {
       isRecording = false;
+      _elapsedSeconds = 0;
     });
     _loadRecordings();
   }
 
   void _loadRecordings() async {
+    setState(() {
+      _isLoading = true;
+    });
     final files = _recordingDirectory!.listSync()..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
+    Map<String, String> newDurations = {};
+    for (var file in files) {
+      newDurations[file.path] = await _getAudioDuration(file.path);
+    }
     setState(() {
       _recordings = files;
+      _durations = newDurations;
+      _isLoading = false;
     });
+  }
+
+  Future<String> _getAudioDuration(String path) async {
+    final tempPlayer = FlutterSoundPlayer();
+    await tempPlayer.openPlayer();
+    final duration = await tempPlayer.startPlayer(fromURI: path);
+    await tempPlayer.stopPlayer();
+    await tempPlayer.closePlayer();
+
+    final d = duration ?? Duration.zero;
+    return '${d.inMinutes.remainder(60).toString().padLeft(2, '0')}:${d.inSeconds.remainder(60).toString().padLeft(2, '0')}';
   }
 
   void _playOrPauseRecording(String path) async {
@@ -106,8 +132,10 @@ class _RecordPageState extends State<RecordPage> {
         _isPlaying = true;
       });
     } else {
-      await _player.stopPlayer(); // Stop previous
+      await _player.stopPlayer();
       await _player.openPlayer();
+
+      await _player.setSubscriptionDuration(const Duration(milliseconds: 100));
       await _player.startPlayer(
         fromURI: path,
         whenFinished: () async {
@@ -200,6 +228,15 @@ class _RecordPageState extends State<RecordPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: Text('My Recordings'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: _loadRecordings,
+          )
+        ],
+      ),
       body: Column(
         children: [
           SizedBox(height: 80),
@@ -213,16 +250,47 @@ class _RecordPageState extends State<RecordPage> {
           Divider(height: 50),
           Text("Saved Recordings", style: TextStyle(fontSize: 18)),
           Expanded(
-            child: ListView.builder(
+            child:_isLoading
+                ? Center(child: CircularProgressIndicator())
+                : _recordings.isEmpty
+                ? Center(child: Text('No recordings found.'))
+                : ListView.builder(
               itemCount: _recordings.length,
               itemBuilder: (context, index) {
                 final file = _recordings[index];
                 final path = file.path;
                 final name = path.split('/').last;
                 final isThisPlaying = _currentlyPlayingPath == path && _isPlaying;
-                // final isThisPaused = _currentlyPlayingPath == path && !_isPlaying;
+                final fileSizeInKB = (File(path).lengthSync() / 1024).toStringAsFixed(1);
                 return ListTile(
                   title: Text(name),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(_durations[path] ?? '00:00'),
+                          Text(" size: $fileSizeInKB kb"),
+                        ],
+                      ),
+                      if (_currentlyPlayingPath == path)
+                        StreamBuilder<PlaybackDisposition>(
+                          stream: _player.onProgress,
+                          builder: (_, snapshot) {
+                            final position = snapshot.data?.position.inMilliseconds ?? 0;
+                            final duration = snapshot.data?.duration.inMilliseconds ?? 1;
+                            return Slider(
+                              value: position.toDouble().clamp(0.0, duration.toDouble()),
+                              max: duration.toDouble(),
+                              onChanged: (value) async {
+                                await _player.seekToPlayer(Duration(milliseconds: value.toInt()));
+                              },
+                            );
+                          },
+                        ),
+                    ],
+                  ),
+
                   leading: IconButton(
                     icon: Icon(isThisPlaying ? Icons.pause : Icons.play_arrow, color: Colors.blue),
                     onPressed: () => _playOrPauseRecording(file.path),
@@ -250,11 +318,13 @@ class _RecordPageState extends State<RecordPage> {
         mainAxisSize: MainAxisSize.min,
         children: [
           FloatingActionButton(
+            heroTag: 'recordBtn',
             onPressed: startBackgroundService,
-            child: Text('AI'),
+            child: Text('Start'),
           ),
           SizedBox(width: 10),
           FloatingActionButton(
+            heroTag: 'stopBtn',
             onPressed: stopBackgroundService,
             child: Icon(Icons.stop_outlined),
           ),
