@@ -92,6 +92,20 @@ class _RecordPageState extends State<RecordPage> {
     });
     _loadRecordings();
   }
+  void _startTimer() {
+    _timer = Timer.periodic(Duration(seconds: 1), (_) {
+      setState(() {
+        _elapsedSeconds++;
+      });
+    });
+  }
+  void _stopTimer() {
+    _timer?.cancel();
+  }
+  String get formattedTime {
+    final Duration duration = Duration(seconds: _elapsedSeconds);
+    return [duration.inHours, duration.inMinutes % 60, duration.inSeconds % 60].map((seg) => seg.toString().padLeft(2, '0')).join(':');
+  }
 
   void _loadRecordings() async {
     setState(() {
@@ -108,7 +122,6 @@ class _RecordPageState extends State<RecordPage> {
       _isLoading = false;
     });
   }
-
   Future<String> _getAudioDuration(String path) async {
     final tempPlayer = FlutterSoundPlayer();
     await tempPlayer.openPlayer();
@@ -119,7 +132,6 @@ class _RecordPageState extends State<RecordPage> {
     final d = duration ?? Duration.zero;
     return '${d.inMinutes.remainder(60).toString().padLeft(2, '0')}:${d.inSeconds.remainder(60).toString().padLeft(2, '0')}';
   }
-
   void _playOrPauseRecording(String path) async {
     if (_currentlyPlayingPath == path && _isPlaying) {
       await _player.pausePlayer();
@@ -151,22 +163,6 @@ class _RecordPageState extends State<RecordPage> {
         _currentlyPlayingPath = path;
       });
     }
-  }
-
-  void _startTimer() {
-    _timer = Timer.periodic(Duration(seconds: 1), (_) {
-      setState(() {
-        _elapsedSeconds++;
-      });
-    });
-  }
-  void _stopTimer() {
-    _timer?.cancel();
-  }
-
-  String get formattedTime {
-    final Duration duration = Duration(seconds: _elapsedSeconds);
-    return [duration.inHours, duration.inMinutes % 60, duration.inSeconds % 60].map((seg) => seg.toString().padLeft(2, '0')).join(':');
   }
 
   Future<void> _renameFile(FileSystemEntity file) async {
