@@ -35,16 +35,16 @@ void onStart(ServiceInstance service) {
     final recognizer = await vosk.createRecognizer(
       model: model,
       sampleRate: 16000,
-      grammar: ['hi dream recorder start recording', 'hi dream recorder stop recording'],
+      grammar: ['hi vision start recording', 'vision stop recording'],
     );
 
     final speechService = await vosk.initSpeechService(recognizer);
 
     speechService.onResult().forEach((result) {
       print("Result: $result");
-      if (result.contains("hi start recording")) {
+      if (result.contains("hi vision start recording")) {
         service.invoke("startRecording");
-      } else if (result.contains("hi stop recording")) {
+      } else if (result.contains("vision stop recording")) {
         service.invoke("stopRecording");
       }
     });
